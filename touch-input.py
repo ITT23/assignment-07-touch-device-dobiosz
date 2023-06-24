@@ -8,7 +8,7 @@ video_id = 1
 if len(sys.argv) > 1:
     video_id = int(sys.argv[1])
 
-cap = cv2.VideoCapture('2023-06-19 17-48-47.mkv')
+cap = cv2.VideoCapture('2023-06-19 17-48-27.mkv')
 cv2.namedWindow('testwind')
 
 
@@ -25,20 +25,31 @@ def brightness(img):
 
 def process_image(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    ret, thresh = cv2.threshold(gray, 125, 255, cv2.THRESH_BINARY)
+    ret, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
 
     contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,
                                            cv2.CHAIN_APPROX_SIMPLE)
 
     if len(contours) > 0:
-        contours = max(contours, key=lambda x: cv2.contourArea(x))
+        # contours = max(contours, key=lambda x: cv2.contourArea(x))
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            x, y, w, h = cv2.boundingRect(cnt)
-            # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        cv2.drawContours(img, [contours], -1, (255, 255, 0), 2)
+            if area > 1000 and area < 10000:
+                x, y, w, h = cv2.boundingRect(cnt)
+                cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # cv2.drawContours(img, [contours], -1, (255, 255, 0), 2)
+        #hull = cv2.convexHull(contours, returnPoints=False)
+        #defects = cv2.convexityDefects(contours, hull)
+        #if defects is not None:
+            #for i in range(defects.shape[0]):
+                #s, e, f, d = defects[i, 0]
+                #start = tuple(contours[s][0])
+                #end = tuple(contours[e][0])
+                #far = tuple(contours[f][0])
+                #cv2.line(img, start, end, [0, 255, 0], 2)
+                #cv2.circle(img, far, 5, [0, 0, 255], -1)
 
-    return img
+    return thresh
 
 
 while True:
