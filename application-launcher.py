@@ -1,5 +1,7 @@
+import os.path
 import subprocess
 from pynput.mouse import Listener, Button
+import os
 
 # array of application paths
 applications = []
@@ -7,7 +9,7 @@ applications = []
 # https://stackoverflow.com/questions/3277503/how-to-read-a-file-line-by-line-into-a-list
 with open('applications.txt') as f:
     while line := f.readline():
-        applications.append((line.rstrip()))
+        applications.append(os.path.normpath((line.rstrip())))
 
 # save inputs
 inputs = []

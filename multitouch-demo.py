@@ -1,12 +1,24 @@
 import pyglet
 from PIL import Image
 import random
+from DIPPID import SensorUDP
+
+# use UPD (via WiFi) for communication
+PORT = 5700
+sensor = SensorUDP(PORT)
 
 # Load images
 stairs = pyglet.image.load('./img/stairs.jpg')
 tables = pyglet.image.load('./img/tables.jpg')
 windows = pyglet.image.load('./img/windows.jpg')
 images = [stairs, tables, windows]
+
+
+def receive_events(data):
+    print(data)
+
+
+sensor.register_callback('events', receive_events)
 
 
 class ChangeableImage:
@@ -42,7 +54,7 @@ class ImageManipulator:
         for image in images:
             changeableImage = ChangeableImage(image, 0, 0)
             scale = random.randint(1, 10)
-            changeableImage.rescale(1/scale)
+            changeableImage.rescale(1 / scale)
             self.changeableImages.append(changeableImage)
             changeableImage.currentImage.blit(0, 0)
 
@@ -62,6 +74,7 @@ imageMan = ImageManipulator()
 def on_draw():
     window.clear()
     imageMan.display_images()
+
 
 @window.event
 def on_key_press(symbol, modifiers):
