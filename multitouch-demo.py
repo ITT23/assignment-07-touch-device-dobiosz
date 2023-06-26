@@ -1,4 +1,5 @@
 import pyglet
+from pyglet import shapes
 from PIL import Image
 import random
 from DIPPID import SensorUDP
@@ -13,12 +14,9 @@ tables = pyglet.image.load('./img/tables.jpg')
 windows = pyglet.image.load('./img/windows.jpg')
 images = [stairs, tables, windows]
 
-
-def receive_events(data):
-    print(data)
-
-
-sensor.register_callback('events', receive_events)
+display = pyglet.canvas.get_display()
+screens = display.get_screens()
+window = pyglet.window.Window(fullscreen=True, screen=screens[0])
 
 
 class ChangeableImage:
@@ -49,6 +47,9 @@ class ImageManipulator:
         self.maxSize = 0.5
         self.changeableImages = []
         self.init_images_randomly()
+        self.windowWidth = window.get_size()[0]
+        self.windowHeight = window.get_size()[1]
+        self.currentShapes = None
 
     def init_images_randomly(self):
         for image in images:
@@ -61,13 +62,27 @@ class ImageManipulator:
     def display_images(self):
         for image in self.changeableImages:
             image.currentImage.blit(0, 0)
+        if self.currentShapes:
+            self.currentShapes.draw()
 
+    def receive_events(self, data):
+        self.currentShapes = None
+        if bool(data):
+            self.eval_events(data)
 
-display = pyglet.canvas.get_display()
-screens = display.get_screens()
-window = pyglet.window.Window(fullscreen=True, screen=screens[0])
+    def eval_events(self, events):
+        for event in events:
+            x = int(events[event]['x'] * self.windowWidth)
+            y = int(events[event]['y'] * self.windowHeight)
+            print(x)
+            print(y)
+            shape = shapes.Circle(500, 500, 10, color=(255, 0, 0))
+            self.currentShapes = shape
+        print(events)
+
 
 imageMan = ImageManipulator()
+sensor.register_callback('events', imageMan.receive_events)
 
 
 @window.event
