@@ -1,10 +1,10 @@
 import json
-
 import cv2
 import sys
 import numpy as np
 from numpy.linalg import norm
 import socket
+from Recognizer.config import CAMWIDTH, CAMHEIGHT
 
 IP = '127.0.0.1'
 PORT = 5700
@@ -18,8 +18,6 @@ if len(sys.argv) > 1:
     video_id = int(sys.argv[1])
 
 cap = cv2.VideoCapture(video_id)
-camHeight = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-camWidth = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 cv2.namedWindow(WINDOW_NAME)
 
 
@@ -73,7 +71,8 @@ class TouchHandler:
     def check_touchEvent(self, img, gray):
 
         # gray_filtered = cv2.inRange(gray, lowestBright, highestBright)
-        ret, thresh = cv2.threshold(gray, self.thresholdTouch, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(gray, self.thresholdTouch, 255,
+                                    cv2.THRESH_BINARY)
 
         contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
@@ -86,14 +85,13 @@ class TouchHandler:
                 if 20000 > area > 2000:
                     x, y, w, h = cv2.boundingRect(cnt)
                     # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                    #cv2.rectangle(img, (int(x + w / 2), int(y + h / 2)), (
-                       # int((x + w / 2) + 10), int((y + h / 2) + 10)), (0, 255, 0),
-                      #            2)
+                    # cv2.rectangle(img, (int(x + w / 2), int(y + h / 2)), (
+                    # int((x + w / 2) + 10), int((y + h / 2) + 10)), (0, 255, 0),
+                    #            2)
                     events[validContoursCounter] = {"type": "touch",
-                                                    "x": (
-                                                                 x + w / 2) / camWidth,
-                                                    "y": (
-                                                                 y + h / 2) / camHeight}
+                                                    "x": (x + w / 2) / CAMWIDTH,
+                                                    "y": 1 - ((y + h / 2) / CAMHEIGHT),
+                                                    }
                     validContoursCounter += 1
                     # cropped = img[y:y + h, x:x + w]
             if bool(events):
@@ -104,7 +102,8 @@ class TouchHandler:
     def check_hoverEvents(self, img, gray, events):
 
         # gray_filtered = cv2.inRange(gray, lowestBright, highestBright)
-        ret, thresh = cv2.threshold(gray, self.thresholdHover, 255, cv2.THRESH_BINARY)
+        ret, thresh = cv2.threshold(gray, self.thresholdHover, 255,
+                                    cv2.THRESH_BINARY)
 
         contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
@@ -118,24 +117,22 @@ class TouchHandler:
 
                     identicalEvents = False
                     for key in events:
-                        norm_x = (x + w / 2) / camWidth
-                        norm_y = (y + y/2) / camHeight
-                        print(abs(norm_x - events[key]['x']))
-                        print(abs(norm_y - events[key]['y']))
-                        if abs(norm_x - events[key]['x']) < 0.1 and abs(norm_y - events[key]['y']) < 0.1:
+                        norm_x = (x + w / 2) / CAMWIDTH
+                        norm_y = (y + y / 2) / CAMHEIGHT
+                        if abs(norm_x - events[key]['x']) < 0.1 and abs(
+                                norm_y - events[key]['y']) < 0.1:
                             identicalEvents = True
                             break
 
                     if not identicalEvents:
                         # cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                        #cv2.rectangle(img, (int(x + w / 2), int(y + h / 2)), (
-                           # int((x + w / 2) + 10), int((y + h / 2) + 10)), (255, 0, 0),
-                                   #   2)
-                        events[validContoursCounter] = {"type": "hover",
-                                                        "x": (
-                                                                     x + w / 2) / camWidth,
-                                                        "y": (
-                                                                     y + h / 2) / camHeight}
+                        # cv2.rectangle(img, (int(x + w / 2), int(y + h / 2)), (
+                        # int((x + w / 2) + 10), int((y + h / 2) + 10)), (255, 0, 0),
+                        #   2)
+                        events[validContoursCounter] = {"type": "touch",
+                                                        "x": (x + w / 2) / CAMWIDTH,
+                                                        "y": 1 - ((y + h / 2) / CAMHEIGHT)
+                                                        }
                         validContoursCounter += 1
                     # cropped = img[y:y + h, x:x + w]
             if bool(events):
@@ -171,10 +168,13 @@ touchHandler = TouchHandler()
 
 while True:
     success, frame = cap.read()
+
     if success:
         if not touchHandler.callibrated:
             touchHandler.callibrate(frame)
         # print(brightness(frame))
+        frame = cv2.resize(frame, (CAMWIDTH, CAMHEIGHT))
+        frame = cv2.flip(frame, 0)
         frame = touchHandler.process_image(frame)
         cv2.imshow(WINDOW_NAME, frame)
 
