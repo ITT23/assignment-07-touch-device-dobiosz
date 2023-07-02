@@ -1,6 +1,5 @@
 import pyglet
 from pyglet import shapes
-from PIL import Image
 import random
 from DIPPID import SensorUDP
 import math
@@ -13,7 +12,7 @@ sensor = SensorUDP(PORT)
 stairs = pyglet.image.load('./img/stairs.jpg')
 tables = pyglet.image.load('./img/tables.jpg')
 windows = pyglet.image.load('./img/windows.jpg')
-images = [tables]
+images = [stairs, tables, windows]
 
 display = pyglet.canvas.get_display()
 screens = display.get_screens()
@@ -44,12 +43,13 @@ def is_point_inside_image(x, y, img):
 
     return False
 
-
+# helper function to calc distance between two points
 def calculate_distance(p1, p2):
     # Calculate the Euclidean distance between two points
     return math.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2)
 
 
+# helper function to calc angle between two points
 def calculate_angle(x1, y1, x2, y2):
     # Calculate the angle between two points with respect to the positive x-axis
     return math.atan2(y2 - y1, x2 - x1)
@@ -69,12 +69,8 @@ class ChangeableImage:
         self.dragOffsetX = 0
         self.dragOffsetY = 0
 
-        self.rotating = False
-        self.rotatePoint1X = 0
-        self.rotatePoint1Y = 0
-        self.rotatePoint2X = 0
-        self.rotatePoint2Y = 0
-        self.angle = 0
+        self.rotatingUp = False
+        self.rotatingDown = False
 
         self.resizing = False
         self.resizePoint1X = 0
@@ -83,22 +79,15 @@ class ChangeableImage:
         self.resizePoint2Y = 0
         self.distance = 0
 
-    def reset_states(self):
-        self.dragging = False
-        self.rotating = False
-        self.resizing = False
-
+    # scale image by factor
     def rescale(self, factor):
-        # self.width = int(self.width * factor)
-        # self.height = int(self.height * factor)
-        # self.currentImage.width = self.width
-        # self.currentImage.height = self.height
         self.imageSprite.scale = self.imageSprite.scale * factor
         self.width = self.width * factor
         self.height = self.height * factor
         self.x = self.imageSprite.x
         self.y = self.imageSprite.y
 
+    # drag the image
     def drag(self, x, y):
         diff_x = x - self.dragOffsetX
         diff_y = y - self.dragOffsetY
@@ -111,22 +100,23 @@ class ChangeableImage:
         self.x = self.imageSprite.x
         self.y = self.imageSprite.y
 
-    def rotate(self, p1_x, p1_y, p2_x, p2_y):
-        initial_angle = calculate_angle(self.rotatePoint1X, self.rotatePoint1Y, self.rotatePoint2X, self.rotatePoint2Y)
-        new_angle = calculate_angle(p1_x, p1_y, p2_x, p2_y)
-
-        rotation_factor = new_angle-initial_angle
-
+    # rotate image up
+    def rotateUp(self):
         self.imageSprite.rotation += 1
 
+        self.rotation = self.imageSprite.rotation
         self.x = self.imageSprite.x
         self.y = self.imageSprite.y
 
-        self.rotatePoint1X = p1_x
-        self.rotatePoint1Y = p1_y
-        self.rotatePoint2X = p2_x
-        self.rotatePoint2Y = p2_y
+    # rotate image down
+    def rotateDown(self):
+        self.imageSprite.rotation += 1
 
+        self.rotation = self.imageSprite.rotation
+        self.x = self.imageSprite.x
+        self.y = self.imageSprite.y
+
+    # calc factor to rescale image by using previous points
     def resize(self, p1_x, p1_y, p2_x, p2_y):
         new_distance = calculate_distance((p1_x, p1_y), (p2_x, p2_y))
         factor = new_distance / self.distance
@@ -137,7 +127,6 @@ class ChangeableImage:
         self.resizePoint2X = p2_x
         self.resizePoint2Y = p2_y
         self.distance = new_distance
-
 
 
 class ImageManipulator:
@@ -151,16 +140,21 @@ class ImageManipulator:
         self.currentEvents = []
         self.currentShapes = []
         self.hoverEvents = []
+        self.touchEvents = []
         self.initialized = False
 
         self.init_images_randomly()
 
     def init_images_randomly(self):
         for i, image in enumerate(images):
-            changeableImage = ChangeableImage(image, (i * 600) + 400,
-                                              ((i + 1) * 400))
-            # scale = random.randint(1, 10)
-            changeableImage.rescale(0.3)
+            changeableImage = ChangeableImage(image, (i * self.windowWidth / 3) + 300,
+                                              (self.windowHeight / 2))
+            randomScale = random.randint(1, 5)
+            randomRotation = random.randint(1, 360)
+            changeableImage.rescale(randomScale / 10)
+            changeableImage.imageSprite.rotation = randomRotation
+            changeableImage.rotation = randomRotation
+
             self.changeableImages.append(changeableImage)
             changeableImage.imageSprite.draw()
 
@@ -173,13 +167,13 @@ class ImageManipulator:
             image.imageSprite.draw()
         for event in self.hoverEvents:
             shape = shapes.Circle(int(event["x"] * self.windowWidth),
-                                  int(event["y"] * self.windowHeight), 10,
+                                  int(event["y"] * self.windowHeight), 30,
                                   color=(0, 255, 0))
             shape.draw()
         for event in self.touchEvents:
             shape = shapes.Circle(int(event["x"] * self.windowWidth),
                                   int(event["y"] * self.windowHeight), 30,
-                                  color=(255, 0, 0))
+                                  color=(0, 0, 255))
             shape.draw()
 
     def receive_events(self, data):
@@ -250,7 +244,8 @@ class ImageManipulator:
             touchedCorners = {}
 
             wasMoved = False
-            wasRotated = False
+            wasRotatedUp = False
+            wasRotatedDown = False
             wasResized = False
             for event in events:
                 event_x = int(event["x"] * self.windowWidth)
@@ -261,13 +256,13 @@ class ImageManipulator:
                 if overlap_corner is not None:
                     touchedCorners[overlap_corner] = {"corner": overlap_corner, "x": event_x, "y": event_y}
                 if is_point_inside_image(event_x, event_y, image):
-                        wasMoved = True
-                        #if image.dragging:
-                            #image.drag(event_x, event_y)
-                        #else:
-                            #image.dragging = True
-                            #image.dragOffsetX = event_x
-                            #image.dragOffsetY = event_y
+                    wasMoved = True
+                    if image.dragging:
+                        image.drag(event_x, event_y)
+                    else:
+                        image.dragging = True
+                        image.dragOffsetX = event_x
+                        image.dragOffsetY = event_y
             if not wasMoved:
                 image.dragging = False
 
@@ -275,10 +270,14 @@ class ImageManipulator:
             secondCorner = ''
 
             if len(touchedCorners) == 2:
-                adjacent_pairs = [('top_right', 'bottom_right'),
-                                  ('bottom_right', 'top_right'),
-                                  ('top_left', 'bottom_left'),
-                                  ('bottom_left', 'top_left')]
+                adjacent_pairs_up = [('top_right', 'bottom_right'),
+                                     ('bottom_right', 'top_right'),
+                                     ('top_left', 'bottom_left'),
+                                     ('bottom_left', 'top_left')]
+                adjacent_pairs_down = [('bottom_left', 'bottom_right'),
+                                       ('bottom_right', 'bottom_left'),
+                                       ('top_left', 'top_right'),
+                                       ('top_right', 'top_left')]
                 diagonal_pairs = [('top_right', 'bottom_left'),
                                   ('bottom_left', 'top_right'),
                                   ('top_left', 'bottom_right'),
@@ -293,51 +292,38 @@ class ImageManipulator:
                 if 'bottom_right' in touchedCorners:
                     secondCorner = 'bottom_right'
 
-                if (firstCorner, secondCorner) in adjacent_pairs or (
-                        secondCorner, firstCorner) in adjacent_pairs:
-                    wasRotated = True
+                if (firstCorner, secondCorner) in adjacent_pairs_up or (
+                        secondCorner, firstCorner) in adjacent_pairs_up:
+                    wasRotatedUp = True
+                elif (firstCorner, secondCorner) in adjacent_pairs_down or (
+                        secondCorner, firstCorner) in adjacent_pairs_down:
+                    wasRotatedDown = True
                 elif (firstCorner, secondCorner) in diagonal_pairs or (
                         secondCorner, firstCorner) in diagonal_pairs:
                     wasResized = True
 
-
-                '''
-                                if firstCorner == "top_right":
-                    if secondCorner == "bottom_left":
-                        wasResized = True
-                        image.resizing = True
-                    elif secondCorner == "top_left":
-                        wasRotated = True
-                        image.rotating = True
-                    elif secondCorner == "bottom_right":
-                        wasRotated = True
-                        image.rotating = True
-                elif secondCorner == "top_right":
-                    if firstCorner == "bottom_left":
-                        wasResized = True
-                        image.resizing = True
-                        touchedCorners = [touchedCorners[1], touchedCorners[0]]
-                    elif firstCorner == "bottom_right":
-                        wasRotated = True
-                        image.rotating = True
-                        touchedCorners = [touchedCorners[1], touchedCorners[0]]
-                '''
-
-            if wasRotated:
-                if image.rotating:
-                    image.rotate(touchedCorners[firstCorner]["x"], touchedCorners[firstCorner]["y"], touchedCorners[secondCorner]["x"], touchedCorners[secondCorner]["y"])
+            if wasRotatedUp:
+                if image.rotatingUp:
+                    image.rotateUp(touchedCorners[firstCorner]["x"], touchedCorners[firstCorner]["y"],
+                                   touchedCorners[secondCorner]["x"], touchedCorners[secondCorner]["y"])
                 else:
-                    image.rotating = True
-                    image.rotatePoint1X = touchedCorners[firstCorner]["x"]
-                    image.rotatePoint1Y = touchedCorners[firstCorner]["y"]
-                    image.rotatePoint2X = touchedCorners[secondCorner]["x"]
-                    image.rotatePoint2Y = touchedCorners[secondCorner]["y"]
+                    image.rotatingUp = True
             else:
-                image.rotating = False
+                image.rotatingUp = False
+
+            if wasRotatedDown:
+                if image.rotatingDown:
+                    image.rotateDown(touchedCorners[firstCorner]["x"], touchedCorners[firstCorner]["y"],
+                                     touchedCorners[secondCorner]["x"], touchedCorners[secondCorner]["y"])
+                else:
+                    image.rotatingDown = True
+            else:
+                image.rotatingDown = False
 
             if wasResized:
                 if image.resizing:
-                    image.resize(touchedCorners[firstCorner]["x"], touchedCorners[firstCorner]["y"], touchedCorners[secondCorner]["x"], touchedCorners[secondCorner]["y"])
+                    image.resize(touchedCorners[firstCorner]["x"], touchedCorners[firstCorner]["y"],
+                                 touchedCorners[secondCorner]["x"], touchedCorners[secondCorner]["y"])
                 else:
                     image.resizing = True
                     image.resizePoint1X = touchedCorners[firstCorner]["x"]

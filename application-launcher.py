@@ -21,10 +21,7 @@ applications = []
 # https://stackoverflow.com/questions/3277503/how-to-read-a-file-line-by-line-into-a-list
 with open('applications.txt') as f:
     while line := f.readline():
-        applications.append(os.path.normpath((line.rstrip())))
-
-# save inputs
-inputs = []
+        applications.append(os.path.normpath((line.split(" ", 1)[1].rstrip())))
 
 
 class ApplicationLauncher:
