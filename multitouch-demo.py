@@ -1,17 +1,20 @@
+import os.path
+
 import pyglet
 from pyglet import shapes
 import random
 from DIPPID import SensorUDP
 import math
+import os
 
 # use UPD (via WiFi) for communication
 PORT = 5700
 sensor = SensorUDP(PORT)
 
 # Load images
-stairs = pyglet.image.load('./img/stairs.jpg')
-tables = pyglet.image.load('./img/tables.jpg')
-windows = pyglet.image.load('./img/windows.jpg')
+stairs = pyglet.image.load(os.path.normpath('./img/stairs.jpg'))
+tables = pyglet.image.load(os.path.normpath('./img/tables.jpg'))
+windows = pyglet.image.load(os.path.normpath('./img/windows.jpg'))
 images = [stairs, tables, windows]
 
 display = pyglet.canvas.get_display()
